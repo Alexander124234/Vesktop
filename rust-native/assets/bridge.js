@@ -133,7 +133,7 @@
 
             if (isLinux) {
                 try {
-                    audioInfo = await media.listAudioSources(false);
+                    audioInfo = await media.listAudioSources(true);
                 } catch (error) {
                     audioError = String(error?.message || error);
                 }
@@ -224,7 +224,7 @@
                 const targets = (audioInfo.targets || []).filter(node => {
                     const mediaClass = node["media.class"] || "";
                     if (mediaClass.includes("Video") || mediaClass.includes("Midi")) return false;
-                    if (node["device.id"]) return false;
+                    if (node["device.id"] && shadow.getElementById("ignore-devices").checked) return false;
                     return Boolean(node["application.name"] || node["node.description"] || node["node.name"]);
                 });
 
@@ -309,15 +309,22 @@
                 return;
             }
 
-            const routePromise = isLinux ? configureLinuxAudio(selection.audio) : Promise.resolve();
+            const wantsAudio = isLinux && selection.audio?.mode !== "none";
+            const routePromise = wantsAudio
+                ? configureLinuxAudio(selection.audio)
+                      .then(() => true)
+                      .catch(async error => {
+                          console.warn("[Vesktop Rust] PipeWire audio setup failed; continuing with video only.", error);
+                          await media.stopAudio().catch(() => {});
+                          return false;
+                      })
+                : Promise.resolve(false);
 
             Promise.all([capturePromise, routePromise])
-                .then(async ([stream]) => {
+                .then(async ([stream, audioRouteReady]) => {
                     try {
                         await applyVideoQuality(stream, selection);
-                        if (isLinux && selection.audio?.mode !== "none") {
-                            await replaceAudioWithVirtualMic(stream);
-                        }
+                        if (audioRouteReady) await replaceAudioWithVirtualMic(stream);
                         resolve(stream);
                     } catch (error) {
                         stream.getTracks().forEach(track => track.stop());
@@ -378,10 +385,17 @@
         }
 
         async function replaceAudioWithVirtualMic(displayStream) {
-            const audioStream = await acquireVirtualMicStream();
-            if (!audioStream) {
-                console.warn("[Vesktop Rust] The PipeWire virtual microphone was not exposed to the WebView.");
-                return;
+            let audioStream = null;
+            try {
+                audioStream = await acquireVirtualMicStream();
+            } catch (error) {
+                console.warn("[Vesktop Rust] Could not open the PipeWire virtual microphone; continuing without audio.", error);
+            }
+
+            const virtualTrack = audioStream?.getAudioTracks()[0];
+            if (!virtualTrack) {
+                await media.stopAudio().catch(() => {});
+                return false;
             }
 
             for (const track of displayStream.getAudioTracks()) {
@@ -389,13 +403,11 @@
                 track.stop();
             }
 
-            const virtualTrack = audioStream.getAudioTracks()[0];
-            if (!virtualTrack) return;
-
             displayStream.addTrack(virtualTrack);
             virtualTrack.addEventListener("ended", () => {
                 if (isLinux) void media.stopAudio().catch(() => {});
             }, { once: true });
+            return true;
         }
 
         async function acquireVirtualMicStream() {
@@ -426,19 +438,22 @@
             return null;
         }
 
+        function maybeUnmuteVirtualMic(track) {
+            if (track?.kind !== "audio" || !track.label.toLowerCase().includes("vencord-screen-share")) return;
+
+            setTimeout(() => {
+                void media.unmuteAudio().catch(error => {
+                    console.warn("[Vesktop Rust] Could not unmute system audio.", error);
+                });
+            }, 300);
+        }
+
         // Tune only screen tracks. Camera video and ordinary voice tracks are left alone.
         const originalAddTrack = RTCPeerConnection.prototype.addTrack;
         RTCPeerConnection.prototype.addTrack = function (track, ...streams) {
             const sender = originalAddTrack.call(this, track, ...streams);
-            if (screenTracks.has(track)) {
-                tuneSender(sender, track);
-            } else if (track.kind === "audio" && track.label.toLowerCase().includes("vencord-screen-share")) {
-                setTimeout(() => {
-                    void media.unmuteAudio().catch(error =>
-                        console.warn("[Vesktop Rust] Could not unmute system audio.", error)
-                    );
-                }, 300);
-            }
+            if (screenTracks.has(track)) tuneSender(sender, track);
+            maybeUnmuteVirtualMic(track);
             return sender;
         };
 
@@ -447,6 +462,7 @@
             RTCRtpSender.prototype.replaceTrack = async function (track) {
                 const result = await originalReplaceTrack.call(this, track);
                 if (track && screenTracks.has(track)) tuneSender(this, track);
+                maybeUnmuteVirtualMic(track);
                 return result;
             };
         }
