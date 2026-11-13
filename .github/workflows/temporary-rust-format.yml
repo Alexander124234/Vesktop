@@ -42,12 +42,12 @@ jobs:
       - name: Format Rust and JavaScript files
         run: |
           cargo fmt --manifest-path rust-native/Cargo.toml --all
-          pnpm exec oxfmt rust-native/assets/bridge.js rust-native/README.md
+          pnpm exec oxfmt rust-native/assets/bridge.js rust-native/README.md .github/workflows/temporary-rust-format.yml
 
       - name: Verify formatting
         run: |
           cargo fmt --manifest-path rust-native/Cargo.toml --all -- --check
-          pnpm exec oxfmt --check rust-native/assets/bridge.js rust-native/README.md
+          pnpm exec oxfmt --check rust-native/assets/bridge.js rust-native/README.md .github/workflows/temporary-rust-format.yml
 
       - name: Check and test Rust runtime
         run: |
@@ -61,7 +61,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add rust-native/src/main.rs rust-native/src/media.rs rust-native/assets/bridge.js rust-native/README.md
+          git add rust-native/src/main.rs rust-native/src/media.rs rust-native/assets/bridge.js rust-native/README.md .github/workflows/temporary-rust-format.yml
           if git diff --cached --quiet; then
             echo "No formatting changes to commit."
           else
