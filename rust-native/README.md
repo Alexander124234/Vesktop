@@ -6,7 +6,7 @@ This directory contains an experimental Rust/Tauri desktop runtime. It is kept s
 
 The preview uses **Tauri 3.0 alpha with Chromium Embedded Framework (CEF)**. This is intentional: the system WebKitGTK engine used by Tauri 2 does not provide the Chromium media environment Discord expects for voice and video calls. CEF embeds Chromium directly, so Discord sees a real Chromium browser with its own matching Chrome/platform user-agent tokens.
 
-CEF is an alpha runtime, not a stable Tauri 2 feature. The first build downloads approximately 1 GB of CEF binaries into `~/.cache/tauri-cef`. The finished app also carries Chromium's libraries and resources, so it is substantially larger and uses more memory than the WebKitGTK build. The CEF version is pinned by `tauri-runtime-cef` in `Cargo.toml`.
+CEF is an alpha runtime, not a stable Tauri 2 feature. The first build downloads approximately 1 GB of CEF binaries. The finished app also carries Chromium's libraries and resources, so it is substantially larger and uses more memory than the WebKitGTK build. The CEF version is pinned by `tauri-runtime-cef` in `Cargo.toml`.
 
 CEF's browser profile is kept in the application cache directory, and session cookies are persisted so Discord stays signed in across restarts.
 
@@ -15,8 +15,8 @@ CEF's browser profile is kept in the application cache directory, and session co
 Install the GTK4/X11 and build dependencies:
 
 ```sh
-sudo pacman -S --needed gtk4 base-devel cmake curl wget file openssl \
-  librsvg libx11 libxkbcommon libxkbcommon-x11 mesa alsa-lib libdbus
+sudo pacman -S --needed gtk4 base-devel curl wget file openssl \
+  librsvg libx11 libxcb libxkbcommon libxkbcommon-x11 mesa alsa-lib libdbus xdotool
 ```
 
 Build the PipeWire audio helper once:
@@ -31,10 +31,11 @@ Then launch the preview from the repository root:
 cargo run --manifest-path rust-native/Cargo.toml
 ```
 
-The first Cargo build fetches CEF (about 1 GB). To put that download on another drive, set `CEF_PATH` before running Cargo:
+The first Cargo build fetches CEF (about 1 GB). Without `CEF_PATH`, the CEF crate stores the download under Cargo's build output. Set `CEF_PATH` to a persistent folder to share and reuse the download across clean builds:
 
 ```sh
-CEF_PATH=/path/to/cef-cache cargo run --manifest-path rust-native/Cargo.toml
+mkdir -p "$HOME/.cache/tauri-cef"
+CEF_PATH="$HOME/.cache/tauri-cef" cargo run --manifest-path rust-native/Cargo.toml
 ```
 
 Use Rust 1.95 or newer. The existing Electron Vesktop app and its profile are not modified; the Rust preview continues to use a separate application identifier and data directory.
