@@ -38,3 +38,17 @@ jobs:
               run: |
                   cargo check --manifest-path rust-native/Cargo.toml
                   cargo test --manifest-path rust-native/Cargo.toml
+
+    check-windows:
+        runs-on: windows-latest
+        steps:
+            - uses: actions/checkout@v7
+            - name: Install Rust 1.95+
+              run: |
+                  rustup toolchain install stable --profile minimal
+                  rustup default stable
+                  rustc --version
+            - name: Check formatting
+              run: cargo fmt --manifest-path rust-native/Cargo.toml --all -- --check
+            - name: Check Windows WebView2 build
+              run: cargo check --manifest-path rust-native/Cargo.toml
