@@ -4,13 +4,19 @@ This directory contains an experimental Rust/Tauri desktop runtime. It is kept s
 
 ## Browser runtime
 
-The preview uses **Tauri 3.0 alpha with Chromium Embedded Framework (CEF)**. This is intentional: the system WebKitGTK engine used by Tauri 2 does not provide the Chromium media environment Discord expects for voice and video calls. CEF embeds Chromium directly, so Discord sees a real Chromium browser with its own matching Chrome/platform user-agent tokens.
+The runtime is platform-specific:
 
-CEF is an alpha runtime, not a stable Tauri 2 feature. The first build downloads approximately 1 GB of CEF binaries. The finished app also carries Chromium's libraries and resources, so it is substantially larger and uses more memory than the WebKitGTK build. The CEF version is pinned by `tauri-runtime-cef` in `Cargo.toml`.
+- **Windows:** Tauri's standard Wry runtime uses the installed **Microsoft Edge WebView2 Evergreen Runtime**. WebView2 embeds Edge's Chromium engine, receives browser updates through Microsoft's runtime updater, and is not bundled again inside the Vesktop installer. This is the preferred Windows path because it avoids shipping a separate ~1 GB CEF distribution.
+- **Linux:** The preview retains **Chromium Embedded Framework (CEF)**. Tauri's default Linux WebKitGTK view is not a reliable Discord voice/video environment, so replacing CEF with the default Linux webview would risk bringing back Discord's unsupported-browser/call problem.
+- **macOS:** Tauri's standard runtime uses WKWebView; Discord call compatibility has not been validated there.
 
-CEF's browser profile is kept in the application cache directory, and session cookies are persisted so Discord stays signed in across restarts.
+On Windows, WebView2 does not launch the full Edge browser. It embeds the installed Edge browser engine in the Rust app. Windows 11 normally includes the Evergreen Runtime; machines without it need the WebView2 Runtime installed.
+
+On Linux, CEF remains an alpha runtime, and the first build downloads approximately 1 GB of Chromium binaries. Its browser profile is kept in the application cache directory, and session cookies are persisted so Discord stays signed in across restarts.
 
 ## Run on Arch Linux
+
+The Linux preview uses CEF; Windows builds use WebView2 automatically through Tauri/Wry.
 
 Install the GTK4/X11 and build dependencies:
 
@@ -31,7 +37,7 @@ Then launch the preview from the repository root:
 cargo run --manifest-path rust-native/Cargo.toml
 ```
 
-The first Cargo build fetches CEF (about 1 GB). Without `CEF_PATH`, the CEF crate stores the download under Cargo's build output. Set `CEF_PATH` to a persistent folder to share and reuse the download across clean builds:
+The first Linux Cargo build fetches CEF (about 1 GB). Without `CEF_PATH`, the CEF crate stores the download under Cargo's build output. Set `CEF_PATH` to a persistent folder to share and reuse the download across clean builds:
 
 ```sh
 mkdir -p "$HOME/.cache/tauri-cef"
@@ -68,7 +74,7 @@ CEF currently uses the X11 backend on Linux. The upstream CEF/WebRTC build does 
 
 ## What is implemented
 
-- Tauri 3 starts the bundled Chromium Embedded Framework runtime rather than WebKitGTK.
+- Windows uses Tauri/Wry with the installed Microsoft Edge WebView2 runtime; Linux uses Tauri 3 with CEF rather than WebKitGTK.
 - Chromium keeps its genuine Chrome and platform user-agent tokens, with a Vesktop product token appended.
 - The CEF helper-process entry point is enabled; Chromium renderer, GPU, network, and utility processes relaunch through the same executable.
 - Discord-domain navigation stays in the app; ordinary web links are opened externally.
@@ -80,8 +86,8 @@ CEF currently uses the X11 backend on Linux. The upstream CEF/WebRTC build does 
 
 This is **not yet a feature-complete Vesktop replacement**. The current Electron application remains the full implementation.
 
-- CEF is an alpha runtime. Its public APIs and packaging integration may change before Tauri 3 stabilizes.
+- Linux CEF is an alpha runtime. Its public APIs and packaging integration may change before Tauri 3 stabilizes. Windows WebView2 uses Tauri's standard Wry backend.
 - Linux CEF currently uses X11. Wayland screen sharing may need a CEF build with PipeWire desktop capture enabled.
 - The old Discord-internal Webpack patches cannot be carried over directly because this Rust runtime does not yet load Vencord. The Rust bridge applies standards-based media constraints and sender bitrate/frame-rate limits instead; Discord-internal stereo experiments and receiver-specific sink scaling are not replicated.
 - Windows/macOS system loopback audio, Rich Presence / arRPC, tray behavior, autostart, updater, popout windows, and existing Vesktop settings UI still need platform-specific implementations.
-- The Rust preview uses a different application identifier and data directory; it does not automatically reuse the Electron profile or login session.
+- The Rust preview uses a different application identifier and data directory; it does not automatically reuse the Electron profile or login session. On Windows, the WebView2 runtime is shared with other WebView2 apps but the Vesktop browser profile remains separate.
