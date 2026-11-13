@@ -210,28 +210,17 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_opener::init())
-        .on_permission_request(|webview, kind| {
-            let is_trusted_discord = webview
-                .url()
-                .ok()
-                .is_some_and(|url| is_discord_navigation(&url));
-
-            match (kind, is_trusted_discord) {
+        .on_permission_request(|_webview, kind| {
+            match kind {
                 // CEF's DisplayCapture Allow response can grant the entire
                 // desktop without showing the source picker. Default hands
                 // the request back to Chromium's own picker.
-                (PermissionKind::DisplayCapture, true) => PermissionResponse::Default,
-                // Camera and microphone use Chromium's origin permission UI.
-                (PermissionKind::Camera | PermissionKind::Microphone, true) => {
+                PermissionKind::DisplayCapture => PermissionResponse::Default,
+                // Let Chromium ask the user for microphone/camera permission.
+                PermissionKind::Camera | PermissionKind::Microphone => {
                     PermissionResponse::Default
                 }
-                // Do not grant capture permission to any other embedded site.
-                (
-                    PermissionKind::DisplayCapture
-                    | PermissionKind::Camera
-                    | PermissionKind::Microphone,
-                    false,
-                ) => PermissionResponse::Deny,
+                // Leave unrelated permissions to Chromium's normal policy.
                 _ => PermissionResponse::Default,
             }
         })
