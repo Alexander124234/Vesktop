@@ -115,7 +115,26 @@
     function installScreenShareEnhancements(originalGetDisplayMedia) {
         const mediaDevices = navigator.mediaDevices;
         const screenTracks = new WeakSet();
+        const audioStreams = new WeakMap();
         let lastQuality = { resolution: 720, frameRate: 30 };
+
+        function releaseCaptureAudio(videoTrack) {
+            const audioStream = audioStreams.get(videoTrack);
+            if (audioStream) {
+                audioStreams.delete(videoTrack);
+                audioStream.getTracks().forEach(track => track.stop());
+            }
+
+            if (isLinux) void media.stopAudio().catch(() => {});
+        }
+
+        const originalTrackStop = MediaStreamTrack.prototype.stop;
+        MediaStreamTrack.prototype.stop = function () {
+            const ownsAudioRoute = audioStreams.has(this);
+            const result = originalTrackStop.call(this);
+            if (ownsAudioRoute) releaseCaptureAudio(this);
+            return result;
+        };
 
         mediaDevices.getDisplayMedia = function (options = {}) {
             // The custom dialog ends with a deliberate click. The original capture
@@ -411,16 +430,18 @@
             }
 
             displayStream.addTrack(virtualTrack);
-            virtualTrack.addEventListener("ended", () => {
-                audioStream.getTracks().forEach(track => track.stop());
-                if (isLinux) void media.stopAudio().catch(() => {});
-            }, { once: true });
-
             const videoTrack = displayStream.getVideoTracks()[0];
-            videoTrack?.addEventListener("ended", () => {
+
+            if (videoTrack) {
+                audioStreams.set(videoTrack, audioStream);
+                videoTrack.addEventListener("ended", () => releaseCaptureAudio(videoTrack), { once: true });
+                virtualTrack.addEventListener("ended", () => releaseCaptureAudio(videoTrack), { once: true });
+            } else {
                 audioStream.getTracks().forEach(track => track.stop());
-                if (isLinux) void media.stopAudio().catch(() => {});
-            }, { once: true });
+                await media.stopAudio().catch(() => {});
+                return false;
+            }
+
             return true;
         }
 
