@@ -50,7 +50,7 @@ Use Rust 1.95 or newer. The existing Electron Vesktop app and its profile are no
 
 The Rust runtime has a custom stream-options dialog. It lets the user choose resolution, frame rate, motion/detail preference, and (on Linux) which PipeWire application audio to include or exclude.
 
-The actual screen or window selection is handed to Chromium's own display-capture picker. The CEF permission callback deliberately returns `Default` for display capture: explicitly allowing CEF display capture can bypass the source picker and grant the whole desktop.
+The actual screen or window selection is handed to the embedded browser's display-capture picker. The permission callback returns `Default` for display capture rather than auto-granting the entire desktop.
 
 On Linux, application/system audio is routed through Vencord's PipeWire helper, `venmic-server`. Build the pinned helper with the local-only listener patch:
 
@@ -75,8 +75,8 @@ CEF currently uses the X11 backend on Linux. The upstream CEF/WebRTC build does 
 ## What is implemented
 
 - Windows uses Tauri/Wry with the installed Microsoft Edge WebView2 runtime; Linux uses Tauri 3 with CEF rather than WebKitGTK.
-- Chromium keeps its genuine Chrome and platform user-agent tokens, with a Vesktop product token appended.
-- The CEF helper-process entry point is enabled; Chromium renderer, GPU, network, and utility processes relaunch through the same executable.
+- Linux CEF keeps its genuine Chrome and platform user-agent tokens, with a Vesktop product token appended. Windows uses WebView2's Edge Chromium user agent.
+- Linux CEF's helper-process entry point is enabled; Chromium renderer, GPU, network, and utility processes relaunch through the same executable. Windows delegates browser processes to the installed WebView2 runtime.
 - Discord-domain navigation stays in the app; ordinary web links are opened externally.
 - The custom stream-options dialog applies capture track constraints and tunes screen-share sender bitrate/frame rate without changing camera streams.
 - Linux audio can select individual PipeWire sources or all eligible speaker outputs using the local `venmic-server` helper. The virtual mic starts muted, is attached as the outgoing stream's audio track, and is unlinked when the share ends.
