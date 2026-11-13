@@ -191,6 +191,7 @@ fn is_discord_navigation(url: &Url) -> bool {
         || host.ends_with(".discordapp.com")
 }
 
+#[tauri_runtime_cef::cef_entry_point]
 fn main() {
     let cef_runtime = Cef::default()
         // Keep Chromium's real Chrome/platform UA tokens and add Vesktop's product
@@ -199,86 +200,81 @@ fn main() {
         // Discord should remain signed in when the app is restarted.
         .persist_session_cookies(true);
 
-    #[tauri_runtime_cef::cef_entry_point]
-    fn run(cef_runtime: Cef) {
-        let app = tauri::Builder::default()
-            .runtime(cef_runtime)
-            .manage(VenmicRuntime::default())
-            .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }))
-            .plugin(tauri_plugin_opener::init())
-            .on_permission_request(|webview, kind| {
-                let is_trusted_discord = webview
-                    .url()
-                    .ok()
-                    .is_some_and(|url| is_discord_navigation(&url));
+    let app = tauri::Builder::default()
+        .runtime(cef_runtime)
+        .manage(VenmicRuntime::default())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_opener::init())
+        .on_permission_request(|webview, kind| {
+            let is_trusted_discord = webview
+                .url()
+                .ok()
+                .is_some_and(|url| is_discord_navigation(&url));
 
-                match (kind, is_trusted_discord) {
-                    // CEF's DisplayCapture Allow response can grant the entire
-                    // desktop without showing the source picker. Default hands
-                    // the request back to Chromium's own picker.
-                    (PermissionKind::DisplayCapture, true) => PermissionResponse::Default,
-                    // Camera and microphone use Chromium's origin permission UI.
-                    (PermissionKind::Camera | PermissionKind::Microphone, true) => {
-                        PermissionResponse::Default
+            match (kind, is_trusted_discord) {
+                // CEF's DisplayCapture Allow response can grant the entire
+                // desktop without showing the source picker. Default hands
+                // the request back to Chromium's own picker.
+                (PermissionKind::DisplayCapture, true) => PermissionResponse::Default,
+                // Camera and microphone use Chromium's origin permission UI.
+                (PermissionKind::Camera | PermissionKind::Microphone, true) => {
+                    PermissionResponse::Default
+                }
+                // Do not grant capture permission to any other embedded site.
+                (
+                    PermissionKind::DisplayCapture
+                    | PermissionKind::Camera
+                    | PermissionKind::Microphone,
+                    false,
+                ) => PermissionResponse::Deny,
+                _ => PermissionResponse::Default,
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_version,
+            get_settings,
+            save_settings,
+            minimize_window,
+            toggle_maximize_window,
+            close_window,
+            focus_window,
+            open_external_url,
+            media_list_audio_sources,
+            media_start_audio_routing,
+            media_unmute_audio_routing,
+            media_stop_audio_routing
+        ])
+        .setup(|app| {
+            let opener_handle = app.handle().clone();
+            let discord_url = Url::parse(DISCORD_APP_URL)?;
+
+            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(discord_url))
+                .title("Vesktop Rust Preview")
+                .inner_size(1280.0, 800.0)
+                .min_inner_size(940.0, 500.0)
+                .initialization_script(INIT_BRIDGE)
+                .on_navigation(move |url| {
+                    if is_discord_navigation(url) {
+                        return true;
                     }
-                    // Do not grant capture permission to any other embedded site.
-                    (
-                        PermissionKind::DisplayCapture
-                        | PermissionKind::Camera
-                        | PermissionKind::Microphone,
-                        false,
-                    ) => PermissionResponse::Deny,
-                    _ => PermissionResponse::Default,
-                }
-            })
-            .invoke_handler(tauri::generate_handler![
-                get_version,
-                get_settings,
-                save_settings,
-                minimize_window,
-                toggle_maximize_window,
-                close_window,
-                focus_window,
-                open_external_url,
-                media_list_audio_sources,
-                media_start_audio_routing,
-                media_unmute_audio_routing,
-                media_stop_audio_routing
-            ])
-            .setup(|app| {
-                let opener_handle = app.handle().clone();
-                let discord_url = Url::parse(DISCORD_APP_URL)?;
 
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::External(discord_url))
-                    .title("Vesktop Rust Preview")
-                    .inner_size(1280.0, 800.0)
-                    .min_inner_size(940.0, 500.0)
-                    .initialization_script(INIT_BRIDGE)
-                    .on_navigation(move |url| {
-                        if is_discord_navigation(url) {
-                            return true;
-                        }
+                    if matches!(url.scheme(), "https" | "http" | "mailto") {
+                        let _ = opener_handle.opener().open_url(url.as_str(), None::<&str>);
+                    }
 
-                        if matches!(url.scheme(), "https" | "http" | "mailto") {
-                            let _ = opener_handle.opener().open_url(url.as_str(), None::<&str>);
-                        }
+                    false
+                })
+                .build()?;
 
-                        false
-                    })
-                    .build()?;
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("Vesktop Chromium runtime failed to build");
 
-                Ok(())
-            })
-            .build(tauri::generate_context!())
-            .expect("Vesktop Chromium runtime failed to build");
-
-        app.run(|_app, _event| {});
-    }
-
-    run(cef_runtime);
+    app.run(|_app, _event| {});
 }
