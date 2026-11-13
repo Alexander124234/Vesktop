@@ -63,7 +63,6 @@ If you want to build it from source:
 2. Run `pnpm buildLibVesktop`
 3. From now on, building Vesktop will use your own build
 
-
 ## Experimental Rust-native preview
 
 An experimental Rust/Tauri desktop runtime is available in [`rust-native/`](rust-native/README.md). Run it with:
