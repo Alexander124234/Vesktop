@@ -5,3 +5,4 @@
 dist
 node_modules
 target
+rust-native/gen/
