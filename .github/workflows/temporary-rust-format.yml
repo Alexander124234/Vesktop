@@ -1,0 +1,75 @@
+name: Temporary Rust-native formatter repair
+
+on:
+  push:
+    branches:
+      - rust-native-preview
+    paths:
+      - "rust-native/**"
+      - ".github/workflows/temporary-rust-format.yml"
+      - ".github/workflows/rust-native.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Tauri CEF build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl wget file libssl-dev \
+            libgtk-4-dev libx11-dev libxcb1-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libdrm-dev libasound2-dev libdbus-1-dev libglib2.0-dev \
+            libpango1.0-dev libcairo2-dev librsvg2-dev
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install Rust 1.95+
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format Rust and JavaScript files
+        run: |
+          cargo fmt --manifest-path rust-native/Cargo.toml --all
+          pnpm exec oxfmt rust-native/assets/bridge.js rust-native/README.md .github/workflows/temporary-rust-format.yml .github/workflows/rust-native.yml
+
+      - name: Verify formatting
+        run: |
+          cargo fmt --manifest-path rust-native/Cargo.toml --all -- --check
+          pnpm exec oxfmt --check rust-native/assets/bridge.js rust-native/README.md .github/workflows/temporary-rust-format.yml .github/workflows/rust-native.yml
+
+      - name: Check and test Rust runtime
+        env:
+          CEF_PATH: ${{ runner.temp }}/tauri-cef
+        run: |
+          cargo check --manifest-path rust-native/Cargo.toml
+          cargo test --manifest-path rust-native/Cargo.toml
+
+      - name: Verify existing Vesktop project
+        run: pnpm test
+
+      - name: Commit formatter output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rust-native/src/main.rs rust-native/src/media.rs rust-native/assets/bridge.js rust-native/README.md .github/workflows/rust-native.yml .github/workflows/temporary-rust-format.yml
+          if git diff --cached --quiet; then
+            echo "No formatting changes to commit."
+          else
+            git commit -m "Format CEF Rust-native runtime"
+            git push origin HEAD:rust-native-preview
+          fi

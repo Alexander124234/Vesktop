@@ -1,0 +1,54 @@
+name: Rust native preview
+
+on:
+    push:
+        branches:
+            - rust-native-preview
+        paths:
+            - "rust-native/**"
+            - ".github/workflows/rust-native.yml"
+    pull_request:
+        paths:
+            - "rust-native/**"
+            - ".github/workflows/rust-native.yml"
+
+jobs:
+    check-linux:
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v7
+            - name: Install Tauri CEF build dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y build-essential curl wget file libssl-dev \
+                    libgtk-4-dev libx11-dev libxcb1-dev libxkbcommon-dev \
+                    libxkbcommon-x11-dev libegl1-mesa-dev libgl1-mesa-dev \
+                    libdrm-dev libasound2-dev libdbus-1-dev libglib2.0-dev \
+                    libpango1.0-dev libcairo2-dev librsvg2-dev
+            - name: Install Rust 1.95+
+              run: |
+                  rustup toolchain install stable --profile minimal
+                  rustup default stable
+                  rustc --version
+            - name: Check formatting
+              run: cargo fmt --manifest-path rust-native/Cargo.toml --all -- --check
+            - name: Check and test Rust application (downloads CEF on first run)
+              env:
+                  CEF_PATH: ${{ runner.temp }}/tauri-cef
+              run: |
+                  cargo check --manifest-path rust-native/Cargo.toml
+                  cargo test --manifest-path rust-native/Cargo.toml
+
+    check-windows:
+        runs-on: windows-latest
+        steps:
+            - uses: actions/checkout@v7
+            - name: Install Rust 1.95+
+              run: |
+                  rustup toolchain install stable --profile minimal
+                  rustup default stable
+                  rustc --version
+            - name: Check formatting
+              run: cargo fmt --manifest-path rust-native/Cargo.toml --all -- --check
+            - name: Check Windows WebView2 build
+              run: cargo check --manifest-path rust-native/Cargo.toml

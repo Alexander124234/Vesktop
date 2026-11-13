@@ -62,3 +62,13 @@ If you want to build it from source:
     - Fedora: `dnf install @c-development @development-tools python3 curl pkgconf-pkg-config glib2-devel`
 2. Run `pnpm buildLibVesktop`
 3. From now on, building Vesktop will use your own build
+
+## Experimental Rust-native preview
+
+An experimental Rust/Tauri desktop runtime is available in [`rust-native/`](rust-native/README.md). Run it with:
+
+```sh
+cargo run --manifest-path rust-native/Cargo.toml
+```
+
+This preview opens Discord in a native system WebView and is not yet a feature-complete replacement for the Electron build. Vencord injection, the custom screen-sharing/audio pipeline, Rich Presence, tray, and updater still need to be ported. The existing Electron build remains unchanged and is still the full Vesktop implementation.

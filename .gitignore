@@ -1,6 +1,8 @@
-dist
-node_modules
 .env
 .DS_Store
 .idea/
 .pnpm-store/
+dist
+node_modules
+target
+rust-native/gen/
