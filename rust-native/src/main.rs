@@ -6,10 +6,8 @@
 
 use std::{fs, io::Write, path::PathBuf};
 
-use serde_json::{json, Value};
-use tauri::{
-    webview::WebviewWindowBuilder, AppHandle, Manager, WebviewUrl, WebviewWindow,
-};
+use serde_json::{Value, json};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, webview::WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
@@ -184,24 +182,22 @@ fn main() {
             let discord_url = Url::parse(DISCORD_APP_URL)?;
 
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(discord_url))
-            .title("Vesktop Rust Preview")
-            .inner_size(1280.0, 800.0)
-            .min_inner_size(940.0, 500.0)
-            .initialization_script(INIT_BRIDGE)
-            .on_navigation(move |url| {
-                if is_discord_navigation(url) {
-                    return true;
-                }
+                .title("Vesktop Rust Preview")
+                .inner_size(1280.0, 800.0)
+                .min_inner_size(940.0, 500.0)
+                .initialization_script(INIT_BRIDGE)
+                .on_navigation(move |url| {
+                    if is_discord_navigation(url) {
+                        return true;
+                    }
 
-                if matches!(url.scheme(), "https" | "http" | "mailto") {
-                    let _ = opener_handle
-                        .opener()
-                        .open_url(url.as_str(), None::<&str>);
-                }
+                    if matches!(url.scheme(), "https" | "http" | "mailto") {
+                        let _ = opener_handle.opener().open_url(url.as_str(), None::<&str>);
+                    }
 
-                false
-            })
-            .build()?;
+                    false
+                })
+                .build()?;
 
             Ok(())
         })
