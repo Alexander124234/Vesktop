@@ -4,16 +4,11 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-use std::{
-    fs,
-    io::Write,
-    path::PathBuf,
-};
+use std::{fs, io::Write, path::PathBuf};
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tauri::{
-    AppHandle, Manager, WebviewUrl, WebviewWindow,
-    webview::WebviewWindowBuilder,
+    webview::WebviewWindowBuilder, AppHandle, Manager, WebviewUrl, WebviewWindow,
 };
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
@@ -188,11 +183,7 @@ fn main() {
             let opener_handle = app.handle().clone();
             let discord_url = Url::parse(DISCORD_APP_URL)?;
 
-            WebviewWindowBuilder::new(
-                app,
-                "main",
-                WebviewUrl::External(discord_url),
-            )
+            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(discord_url))
             .title("Vesktop Rust Preview")
             .inner_size(1280.0, 800.0)
             .min_inner_size(940.0, 500.0)
