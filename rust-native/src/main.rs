@@ -4,10 +4,16 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+mod media;
+
 use std::{fs, io::Write, path::PathBuf};
 
-use serde_json::{Value, json};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, webview::WebviewWindowBuilder};
+use media::{AudioLinkRequest, VenmicRuntime};
+use serde_json::{json, Value};
+use tauri::{
+    webview::{PermissionKind, PermissionResponse, WebviewWindowBuilder},
+    AppHandle, Manager, WebviewUrl, WebviewWindow,
+};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
@@ -142,6 +148,32 @@ fn open_external_url(app: AppHandle, url: String) -> Result<(), String> {
         .map_err(|error| format!("Could not open external link: {error}"))
 }
 
+#[tauri::command]
+async fn media_list_audio_sources(
+    app: AppHandle,
+    granular: Option<bool>,
+) -> Result<media::AudioSourcesResponse, String> {
+    media::list_audio_sources(app, granular.unwrap_or(false)).await
+}
+
+#[tauri::command]
+async fn media_start_audio_routing(
+    app: AppHandle,
+    request: AudioLinkRequest,
+) -> Result<(), String> {
+    media::start_audio_routing(app, request).await
+}
+
+#[tauri::command]
+async fn media_unmute_audio_routing(app: AppHandle) -> Result<(), String> {
+    media::unmute_audio_routing(app).await
+}
+
+#[tauri::command]
+async fn media_stop_audio_routing(app: AppHandle) -> Result<(), String> {
+    media::stop_audio_routing(app).await
+}
+
 fn is_discord_navigation(url: &Url) -> bool {
     if url.scheme() != "https" {
         return false;
@@ -160,6 +192,7 @@ fn is_discord_navigation(url: &Url) -> bool {
 
 fn main() {
     tauri::Builder::default()
+        .manage(VenmicRuntime::default())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -167,6 +200,18 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_opener::init())
+        .on_permission_request(|webview, kind| {
+            let is_trusted_discord = webview.url().ok().is_some_and(|url| is_discord_navigation(&url));
+
+            match (kind, is_trusted_discord) {
+                // WebKitGTK routes this through its display-capture permission request;
+                // on Wayland the xdg-desktop-portal still presents the user's screen/window picker.
+                (PermissionKind::DisplayCapture, true) => PermissionResponse::Allow,
+                // Keep microphone/camera and every other permission under the WebView's
+                // normal permission flow. Only display capture is auto-allowed here.
+                _ => PermissionResponse::Default,
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             get_version,
             get_settings,
@@ -175,7 +220,11 @@ fn main() {
             toggle_maximize_window,
             close_window,
             focus_window,
-            open_external_url
+            open_external_url,
+            media_list_audio_sources,
+            media_start_audio_routing,
+            media_unmute_audio_routing,
+            media_stop_audio_routing
         ])
         .setup(|app| {
             let opener_handle = app.handle().clone();
