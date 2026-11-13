@@ -42,12 +42,12 @@ jobs:
       - name: Format Rust and JavaScript files
         run: |
           cargo fmt --manifest-path rust-native/Cargo.toml --all
-          pnpm exec oxfmt rust-native/assets/bridge.js rust-native/README.md .github/workflows/temporary-rust-format.yml
+          pnpm exec oxfmt rust-native/assets/bridge.js rust-native/README.md .github/workflows/temporary-rust-format.yml .github/workflows/rust-native.yml
 
       - name: Verify formatting
         run: |
           cargo fmt --manifest-path rust-native/Cargo.toml --all -- --check
-          pnpm exec oxfmt --check rust-native/assets/bridge.js rust-native/README.md .github/workflows/temporary-rust-format.yml
+          pnpm exec oxfmt --check rust-native/assets/bridge.js rust-native/README.md .github/workflows/temporary-rust-format.yml .github/workflows/rust-native.yml
 
       - name: Check and test Rust runtime
         run: |
