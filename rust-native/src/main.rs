@@ -269,7 +269,7 @@ fn main() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("Vesktop Chromium runtime failed to build");
+        .expect("Vesktop webview runtime failed to build");
 
     app.run(|_app, _event| {});
 }
