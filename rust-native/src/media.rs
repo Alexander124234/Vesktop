@@ -198,11 +198,15 @@ async fn ensure_server(app: &AppHandle) -> Result<(), String> {
                 match child.try_wait() {
                     Ok(Some(status)) => {
                         *child_slot = None;
-                        return Err(format!("The PipeWire helper exited during startup ({status})."));
+                        return Err(format!(
+                            "The PipeWire helper exited during startup ({status})."
+                        ));
                     }
                     Err(error) => {
                         *child_slot = None;
-                        return Err(format!("Could not inspect the PipeWire helper process: {error}"));
+                        return Err(format!(
+                            "Could not inspect the PipeWire helper process: {error}"
+                        ));
                     }
                     Ok(None) => {}
                 }
@@ -256,10 +260,7 @@ pub async fn list_audio_sources(
     })
 }
 
-pub async fn start_audio_routing(
-    app: AppHandle,
-    request: AudioLinkRequest,
-) -> Result<(), String> {
+pub async fn start_audio_routing(app: AppHandle, request: AudioLinkRequest) -> Result<(), String> {
     ensure_server(&app).await?;
 
     let process_ids = own_process_tree_ids();
@@ -398,7 +399,10 @@ mod tests {
         let filter = node_filter("application.name", "Firefox");
 
         assert_eq!(filter.len(), 1);
-        assert_eq!(filter.get("application.name").map(String::as_str), Some("Firefox"));
+        assert_eq!(
+            filter.get("application.name").map(String::as_str),
+            Some("Firefox")
+        );
     }
 
     #[test]
