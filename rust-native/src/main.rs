@@ -9,10 +9,10 @@ mod media;
 use std::{fs, io::Write, path::PathBuf};
 
 use media::{AudioLinkRequest, VenmicRuntime};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tauri::{
-    webview::{PermissionKind, PermissionResponse, WebviewWindowBuilder},
     AppHandle, Manager, WebviewUrl, WebviewWindow,
+    webview::{PermissionKind, PermissionResponse, WebviewWindowBuilder},
 };
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
@@ -201,7 +201,10 @@ fn main() {
         }))
         .plugin(tauri_plugin_opener::init())
         .on_permission_request(|webview, kind| {
-            let is_trusted_discord = webview.url().ok().is_some_and(|url| is_discord_navigation(&url));
+            let is_trusted_discord = webview
+                .url()
+                .ok()
+                .is_some_and(|url| is_discord_navigation(&url));
 
             match (kind, is_trusted_discord) {
                 // WebKitGTK routes this through its display-capture permission request;
