@@ -279,6 +279,13 @@
                     const selected = [...shadow.querySelectorAll("#audio-sources input:checked")]
                         .map(input => JSON.parse(input.dataset.node));
 
+                    if (mode === "apps" && selected.length === 0) {
+                        const status = shadow.getElementById("audio-status");
+                        status.textContent = "Choose at least one application, or switch to Entire system.";
+                        list.classList.add("visible");
+                        return;
+                    }
+
                     audio = {
                         mode,
                         selected,
@@ -405,6 +412,13 @@
 
             displayStream.addTrack(virtualTrack);
             virtualTrack.addEventListener("ended", () => {
+                audioStream.getTracks().forEach(track => track.stop());
+                if (isLinux) void media.stopAudio().catch(() => {});
+            }, { once: true });
+
+            const videoTrack = displayStream.getVideoTracks()[0];
+            videoTrack?.addEventListener("ended", () => {
+                audioStream.getTracks().forEach(track => track.stop());
                 if (isLinux) void media.stopAudio().catch(() => {});
             }, { once: true });
             return true;
