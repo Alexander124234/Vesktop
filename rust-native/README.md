@@ -8,25 +8,25 @@ Install Rust 1.90 or newer, then install the native WebView build dependencies f
 
 On Arch Linux:
 
-\`\`\`sh
+```sh
 sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl \\
   appmenu-gtk-module libappindicator-gtk3 librsvg
-\`\`\`
+```
 
 On Debian/Ubuntu:
 
-\`\`\`sh
+```sh
 sudo apt install build-essential curl wget file libssl-dev libgtk-3-dev \\
   libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libxdo-dev librsvg2-dev
-\`\`\`
+```
 
 On Windows, install the Visual Studio C++ build tools and ensure the WebView2 Runtime is installed. On macOS, install the Xcode command-line tools.
 
 From the repository root:
 
-\`\`\`sh
+```sh
 cargo run --manifest-path rust-native/Cargo.toml
-\`\`\`
+```
 
 The preview opens the official Discord web app in a native Tauri window. It stores a separate settings file in the operating system's application-data directory.
 
@@ -36,21 +36,21 @@ The Rust runtime now has a custom stream-options dialog. It lets the user choose
 
 The actual screen or window selection is still performed by the system WebView / desktop portal. This is deliberate: Wayland capture is mediated by the compositor's xdg-desktop-portal, which owns source selection and capture permission. The app does not silently enumerate or capture windows behind the user's back.
 
-On Linux, application/system audio is routed through Vencord's PipeWire helper, \`venmic-server\`. Build the pinned helper with the local-only listener patch:
+On Linux, application/system audio is routed through Vencord's PipeWire helper, `venmic-server`. Build the pinned helper with the local-only listener patch:
 
-\`\`\`sh
-rust-native/scripts/build-venmic.sh
-\`\`\`
+```sh
+bash rust-native/scripts/build-venmic.sh
+```
 
 Install the Arch Linux build prerequisites first:
 
-\`\`\`sh
-sudo pacman -S --needed git cmake pkgconf base-devel pipewire libpulse
-\`\`\`
+```sh
+sudo pacman -S --needed git cmake pkgconf base-devel pipewire pipewire-pulse libpulse
+```
 
-The build helper pins the upstream venmic source revision and patches its REST listener from \`0.0.0.0\` to \`127.0.0.1\` before compiling. This matters because the helper's \`/link\`, \`/unlink\`, and \`/unmute\` endpoints control the local audio graph and must not be exposed to other computers on the network.
+The build helper pins the upstream venmic source revision and patches its REST listener from `0.0.0.0` to `127.0.0.1` before compiling. This matters because the helper's `/link`, `/unlink`, and `/unmute` endpoints control the local audio graph and must not be exposed to other computers on the network.
 
-The Rust runtime starts the helper on demand at \`127.0.0.1:17591\`, and stops the child process when Vesktop exits. To use a custom binary path, set \`VESKTOP_VENMIC_SERVER=/absolute/path/to/vesktop-venmic-server\`.
+The Rust runtime starts the helper on demand at `127.0.0.1:17591`, and stops the child process when Vesktop exits. To use a custom binary path, set `VESKTOP_VENMIC_SERVER=/absolute/path/to/vesktop-venmic-server`.
 
 ## What is implemented
 
@@ -59,10 +59,10 @@ The Rust runtime starts the helper on demand at \`127.0.0.1:17591\`, and stops t
 - Window sizing and the minimum dimensions are set in Rust.
 - Settings are loaded and saved as JSON with an atomic file replacement.
 - Discord-domain navigation stays in the app; ordinary web links are opened externally.
-- A small asynchronous \`window.VesktopRust\` bridge exposes version, settings, window controls, external-link opening, and media commands.
+- A small asynchronous `window.VesktopRust` bridge exposes version, settings, window controls, external-link opening, and media commands.
 - Display-capture permission is handled by Tauri only for the official Discord origin; actual capture is still selected through the WebView's platform capture UI.
-- The custom stream-options dialog applies capture track constraints and tunes screen-share sender bitrate/frame rate without changing camera streams.
-- Linux audio can select individual PipeWire sources or all eligible speaker outputs using the local \`venmic-server\` helper. The virtual mic starts muted, is attached as the outgoing stream's audio track, and is unlinked when the share ends.
+- The custom stream-options dialog applies capture track constraints and tunes screen-share sender bitrate/frame rate without changing camera streams. PipeWire routing failures fall back to video-only sharing.
+- Linux audio can select individual PipeWire sources or all eligible speaker outputs using the local `venmic-server` helper. The virtual mic starts muted, is attached as the outgoing stream's audio track, and is unlinked when the share ends.
 
 ## Known limitations
 
