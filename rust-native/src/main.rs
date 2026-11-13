@@ -15,6 +15,7 @@ use tauri::{
     webview::{PermissionKind, PermissionResponse, WebviewWindowBuilder},
 };
 use tauri_plugin_opener::OpenerExt;
+#[cfg(target_os = "linux")]
 use tauri_runtime_cef::Cef;
 use url::Url;
 
@@ -191,17 +192,23 @@ fn is_discord_navigation(url: &Url) -> bool {
         || host.ends_with(".discordapp.com")
 }
 
-#[tauri_runtime_cef::cef_entry_point]
+#[cfg_attr(target_os = "linux", tauri_runtime_cef::cef_entry_point)]
 fn main() {
-    let cef_runtime = Cef::default()
-        // Keep Chromium's real Chrome/platform UA tokens and add Vesktop's product
-        // token. Replacing the whole UA would make browser feature detection fail.
-        .user_agent_product(format!("Vesktop/{}", env!("CARGO_PKG_VERSION")))
-        // Discord should remain signed in when the app is restarted.
-        .persist_session_cookies(true);
+    // Windows uses Tauri/Wry with the installed Microsoft Edge WebView2 Runtime.
+    // Linux keeps CEF because WebKitGTK is not a reliable Discord call runtime.
+    let builder = tauri::Builder::default();
 
-    let app = tauri::Builder::default()
-        .runtime(cef_runtime)
+    #[cfg(target_os = "linux")]
+    let builder = builder.runtime(
+        Cef::default()
+            // Keep Chromium's real Chrome/platform UA tokens and add Vesktop's product
+            // token. Replacing the whole UA would make browser feature detection fail.
+            .user_agent_product(format!("Vesktop/{}", env!("CARGO_PKG_VERSION")))
+            // Discord should remain signed in when the app is restarted.
+            .persist_session_cookies(true),
+    );
+
+    let app = builder
         .manage(VenmicRuntime::default())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -212,9 +219,8 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .on_permission_request(|_webview, kind| {
             match kind {
-                // CEF's DisplayCapture Allow response can grant the entire
-                // desktop without showing the source picker. Default hands
-                // the request back to Chromium's own picker.
+                // Keep display capture under the embedded browser's native picker.
+                // Do not auto-grant the entire desktop from the app callback.
                 PermissionKind::DisplayCapture => PermissionResponse::Default,
                 // Let Chromium ask the user for microphone/camera permission.
                 PermissionKind::Camera | PermissionKind::Microphone => {
