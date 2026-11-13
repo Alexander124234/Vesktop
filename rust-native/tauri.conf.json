@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Vesktop Rust Preview",
+  "version": "0.1.0",
+  "identifier": "dev.vencord.vesktop.rust",
+  "build": {
+    "frontendDist": "webview"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "capabilities": ["discord-main"]
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}

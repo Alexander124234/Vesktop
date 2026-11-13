@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "discord-main",
+  "description": "Limited Tauri core access for the official Discord web application.",
+  "windows": ["main"],
+  "remote": {
+    "urls": [
+      "https://discord.com/*",
+      "https://*.discord.com/*",
+      "https://discordapp.com/*",
+      "https://*.discordapp.com/*"
+    ]
+  },
+  "permissions": ["core:default"]
+}
